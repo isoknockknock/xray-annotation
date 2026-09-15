@@ -97,7 +97,7 @@ export default function ExportModal({
           <div className="bg-slate-100 p-4 rounded-lg border border-slate-300 mb-6 grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs font-sans">
             <div>
               <span className="text-slate-500 text-[10px] uppercase font-bold block">Patient Name</span>
-              <span className="font-bold text-slate-900">{caseData?.patientName || 'Eleanor Vance'}</span>
+              <span className="font-bold text-slate-900">{caseData?.patientName || 'Igor Thiago'}</span>
             </div>
             <div>
               <span className="text-slate-500 text-[10px] uppercase font-bold block">Patient ID</span>
