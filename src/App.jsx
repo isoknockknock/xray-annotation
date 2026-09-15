@@ -33,8 +33,8 @@ export default function App() {
   const [isApproved, setIsApproved] = useState(false);
   
   const [physicianInfo, setPhysicianInfo] = useState({
-    name: 'Dr. Sarah Jenkins, M.D.',
-    license: 'NPI-94820194'
+    name: 'Dr. Doctor Doctor, M.D.',
+    license: 'NPI-xxxxxxxx'
   });
 
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);

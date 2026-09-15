@@ -152,10 +152,10 @@ export default function ExportModal({
 
             <div className="text-right">
               <div className="font-bold text-xs text-slate-900">
-                {physicianInfo?.name || 'Dr. Sarah Jenkins, M.D.'}
+                {physicianInfo?.name || 'Dr. Doctor Doctor, M.D.'}
               </div>
               <div className="text-[11px] text-slate-600 font-mono">
-                {physicianInfo?.license || 'NPI-94820194'} • Board Certified Radiologist
+                {physicianInfo?.license || 'NPI-xxxxxxxx'} • Board Certified Radiologist
               </div>
               <div className="text-[10px] text-emerald-700 font-semibold mt-1 flex items-center justify-end gap-1">
                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Signed & Authenticated
