@@ -101,7 +101,7 @@ export default function ExportModal({
             </div>
             <div>
               <span className="text-slate-500 text-[10px] uppercase font-bold block">Patient ID</span>
-              <span className="font-mono font-bold text-slate-900">{caseData?.patientId || 'PAT-884920'}</span>
+              <span className="font-mono font-bold text-slate-900">{caseData?.patientId || 'PAT-xxxxxx'}</span>
             </div>
             <div>
               <span className="text-slate-500 text-[10px] uppercase font-bold block">Age / Sex</span>
