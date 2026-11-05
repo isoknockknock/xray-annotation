@@ -6,6 +6,8 @@ import EditableReport from './components/EditableReport';
 import ExportModal from './components/ExportModal';
 
 import { runMedGemmaInference, RADIOLOGIST_SYSTEM_PROMPT } from './services/medgemmaService';
+import { runChexOneInference } from './services/chexoneService';
+import ModelComparison from './components/ModelComparison';
 import { Upload, FileUp, Sparkles, Activity } from 'lucide-react';
 
 export default function App() {
@@ -15,6 +17,10 @@ export default function App() {
   
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisProgress, setAnalysisProgress] = useState(null);
+  const [modelResults, setModelResults] = useState({
+    medgemma: { status: 'idle', text: '' },
+    chexone: { status: 'idle', text: '' }
+  });
 
   // Editable Report State
   const [findings, setFindings] = useState('');
@@ -130,92 +136,105 @@ export default function App() {
   reader.readAsDataURL(file);
 };
 
-  // Execute MedGemma Inference
- const handleRunInference = async ({
-  customPrompt,
-  temperature,
-  imageFile: providedImageFile
-}) => {
+   // Run both models against the exact same uploaded image.
+  // Each result is tracked independently so one model can fail without hiding the other.
+  const handleRunInference = async ({
+    customPrompt,
+    temperature,
+    imageFile: providedImageFile
+  }) => {
+    const fileToAnalyze = providedImageFile || imageFile;
 
-  const fileToAnalyze = providedImageFile || imageFile;
+    if (!fileToAnalyze) {
+      console.warn("No X-ray file available for inference.");
+      return;
+    }
 
-  if (!fileToAnalyze) {
-    console.warn("No X-ray file available for inference.");
-    return;
-  }
+    setIsAnalyzing(true);
+    setAnalysisProgress({
+      message: "Sending the same X-ray to MedGemma and CheXOne..."
+    });
+    setModelResults({
+      medgemma: { status: 'loading', text: '' },
+      chexone: { status: 'loading', text: '' }
+    });
 
-  setIsAnalyzing(true);
-
-  setAnalysisProgress({
-    message: "Initializing MedGemma Vision Pipeline..."
-  });
-
-  try {
-
-    const result = await runMedGemmaInference({
+    const medgemmaPromise = runMedGemmaInference({
       imageFile: fileToAnalyze,
       customPrompt,
       temperature,
-
-      onProgress: (p) => {
-        setAnalysisProgress(p);
-      }
+      onProgress: (progress) => setAnalysisProgress(progress)
     });
 
+    const chexonePromise = runChexOneInference({
+      imageFile: fileToAnalyze
+    });
 
-    // --------------------------------------------
-    // Update report
-    // --------------------------------------------
+    const [medgemmaOutcome, chexoneOutcome] = await Promise.allSettled([
+      medgemmaPromise,
+      chexonePromise
+    ]);
 
-    setFindings(result.findings);
-    setImpression(result.impression);
+    let medgemmaResult = null;
 
-    if (result.triageLevel) {
-      setTriageLevel(result.triageLevel);
+    if (medgemmaOutcome.status === 'fulfilled') {
+      medgemmaResult = medgemmaOutcome.value;
+      const reportText = [
+        medgemmaResult.findings && `Findings:\n${medgemmaResult.findings}`,
+        medgemmaResult.impression && `Impression:\n${medgemmaResult.impression}`
+      ].filter(Boolean).join('\n\n') || medgemmaResult.rawReport || 'The model returned an empty report.';
+
+      setModelResults((previous) => ({
+        ...previous,
+        medgemma: { status: 'success', text: reportText }
+      }));
+
+      // Keep the editable/approvable report based on MedGemma, as before.
+      setFindings(medgemmaResult.findings || medgemmaResult.rawReport || '');
+      setImpression(medgemmaResult.impression || '');
+      setTriageLevel(medgemmaResult.triageLevel || 'Pending');
+      setOriginalAiResult({
+        findings: medgemmaResult.findings || medgemmaResult.rawReport || '',
+        impression: medgemmaResult.impression || '',
+        triageLevel: medgemmaResult.triageLevel || 'Pending'
+      });
+      setCurrentCase((previous) => ({
+        ...previous,
+        findings: medgemmaResult.findings || medgemmaResult.rawReport || '',
+        impression: medgemmaResult.impression || '',
+        triageLevel: medgemmaResult.triageLevel || 'Pending'
+      }));
+    } else {
+      console.error("MedGemma Inference Error:", medgemmaOutcome.reason);
+      setModelResults((previous) => ({
+        ...previous,
+        medgemma: {
+          status: 'error',
+          text: medgemmaOutcome.reason?.message || 'MedGemma inference failed.'
+        }
+      }));
     }
 
-
-    // --------------------------------------------
-    // Store original AI result
-    // --------------------------------------------
-
-    setOriginalAiResult({
-      findings: result.findings,
-      impression: result.impression,
-      triageLevel: result.triageLevel || "Pending"
-    });
-
-
-    // --------------------------------------------
-    // Update case data
-    // --------------------------------------------
-
-    setCurrentCase((previous) => ({
-      ...previous,
-
-      findings: result.findings,
-      impression: result.impression,
-      triageLevel: result.triageLevel || "Pending"
-    }));
-
-  } catch (err) {
-
-    console.error("MedGemma Inference Error:", err);
-
-    setFindings(
-      "MedGemma inference failed."
-    );
-
-    setImpression(
-      err.message || "Unable to process the X-ray."
-    );
-
-  } finally {
+    if (chexoneOutcome.status === 'fulfilled') {
+      setModelResults((previous) => ({
+        ...previous,
+        chexone: { status: 'success', text: chexoneOutcome.value.reportText }
+      }));
+    } else {
+      console.error("CheXOne Inference Error:", chexoneOutcome.reason);
+      setModelResults((previous) => ({
+        ...previous,
+        chexone: {
+          status: 'error',
+          text: chexoneOutcome.reason?.message || 'CheXOne inference failed.'
+        }
+      }));
+    }
 
     setIsAnalyzing(false);
     setAnalysisProgress(null);
-  }
-};
+  };
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
       {/* Hidden File Input */}
@@ -235,44 +254,52 @@ export default function App() {
         isApproved={isApproved}
       />
 
-      {/* Main Layout Grid */}
-      <main className="flex-1 p-6 lg:p-10 grid grid-cols-1 lg:grid-cols-12 gap-10 max-w-[1920px] mx-auto w-full">
-        {/* Left Column: DICOM Canvas & Controls (7 Cols) */}
-        <div className="lg:col-span-7 flex flex-col gap-4">
-          <XRayViewer
-            imageSrc={imageSrc}
-            caseData={currentCase}
-            isAnalyzing={isAnalyzing}
-            showRoiHeatmap={showRoiHeatmap}
-            setShowRoiHeatmap={setShowRoiHeatmap}
-          />
-          <InferenceControls
-            onRunInference={handleRunInference}
-            isAnalyzing={isAnalyzing}
-            analysisProgress={analysisProgress}
-          />
+      {/* Main Layout */}
+      <main className="flex-1 p-6 lg:p-10 max-w-[1920px] mx-auto w-full space-y-8">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          {/* X-ray viewer and shared inference controls */}
+          <div className="lg:col-span-5 flex flex-col gap-4">
+            <XRayViewer
+              imageSrc={imageSrc}
+              caseData={currentCase}
+              isAnalyzing={isAnalyzing}
+              showRoiHeatmap={showRoiHeatmap}
+              setShowRoiHeatmap={setShowRoiHeatmap}
+            />
+            <InferenceControls
+              onRunInference={handleRunInference}
+              isAnalyzing={isAnalyzing}
+              analysisProgress={analysisProgress}
+            />
+          </div>
+
+          {/* Both model outputs are shown side by side */}
+          <div className="lg:col-span-7 min-w-0">
+            <ModelComparison
+              medgemma={modelResults.medgemma}
+              chexone={modelResults.chexone}
+            />
+          </div>
         </div>
 
-        {/* Right Column: Radiologist Editable Diagnostic Workstation (5 Cols) */}
-        <div className="lg:col-span-5 flex flex-col">
-          <EditableReport
-            currentCase={currentCase}
-            findings={findings}
-            setFindings={setFindings}
-            impression={impression}
-            setImpression={setImpression}
-            triageLevel={triageLevel}
-            setTriageLevel={setTriageLevel}
-            anatomicalBreakdown={anatomicalBreakdown}
-            setAnatomicalBreakdown={setAnatomicalBreakdown}
-            originalAiResult={originalAiResult}
-            isApproved={isApproved}
-            setIsApproved={setIsApproved}
-            physicianInfo={physicianInfo}
-            setPhysicianInfo={setPhysicianInfo}
-            onOpenExportModal={() => setIsExportModalOpen(true)}
-          />
-        </div>
+        {/* Editable report and approval workflow remains available below */}
+        <EditableReport
+          currentCase={currentCase}
+          findings={findings}
+          setFindings={setFindings}
+          impression={impression}
+          setImpression={setImpression}
+          triageLevel={triageLevel}
+          setTriageLevel={setTriageLevel}
+          anatomicalBreakdown={anatomicalBreakdown}
+          setAnatomicalBreakdown={setAnatomicalBreakdown}
+          originalAiResult={originalAiResult}
+          isApproved={isApproved}
+          setIsApproved={setIsApproved}
+          physicianInfo={physicianInfo}
+          setPhysicianInfo={setPhysicianInfo}
+          onOpenExportModal={() => setIsExportModalOpen(true)}
+        />
       </main>
 
       {/* Export Modal */}

@@ -28,9 +28,9 @@ export default function InferenceControls({
           </div>
           <div>
             <h3 className="text-xs font-bold text-white uppercase tracking-wider font-mono">
-              MedGemma 1.5 4B-IT Engine
+              Dual Model Inference
             </h3>
-            <p className="text-[11px] text-slate-400">Deep Vision-Language Radiology Inference</p>
+            <p className="text-[11px] text-slate-400">MedGemma + CheXOne • Parallel chest X-ray analysis</p>
           </div>
         </div>
 
@@ -91,7 +91,7 @@ export default function InferenceControls({
           <div className="w-4 h-4 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin shrink-0" />
           <div className="flex-1">
             <div className="text-xs font-semibold text-cyan-300 font-mono">
-              {analysisProgress?.message || 'Processing scan through MedGemma...'}
+              {analysisProgress?.message || 'Processing scan through both models...'}
             </div>
             <div className="w-full bg-slate-900 h-1 rounded-full mt-1.5 overflow-hidden">
               <div className="bg-gradient-to-r from-cyan-400 to-blue-500 h-full w-2/3 animate-pulse" />
@@ -111,7 +111,7 @@ export default function InferenceControls({
         }`}
       >
         <Sparkles className="w-4 h-4 fill-black" />
-        {isAnalyzing ? 'RUNNING MEDGEMMA INFERENCE...' : 'RUN MEDGEMMA DIAGNOSTIC INFERENCE'}
+        {isAnalyzing ? 'RUNNING BOTH MODELS...' : 'RUN BOTH MODEL INFERENCES'}
       </button>
     </div>
   );
