@@ -3,7 +3,6 @@ import {
   FileText, Edit3, ShieldCheck, AlertTriangle, CheckCircle, 
   RotateCcw, History, Award, UserCheck, Download, Printer, ExternalLink, Eye
 } from 'lucide-react';
-import confetti from 'canvas-confetti';
 
 export default function EditableReport({
   currentCase,
@@ -48,13 +47,6 @@ export default function EditableReport({
   // Approval trigger
   const handleApprove = () => {
     setIsApproved(true);
-    // Fire celebratory medical approval confetti effect!
-    confetti({
-      particleCount: 80,
-      spread: 70,
-      origin: { y: 0.7 },
-      colors: ['#00f2fe', '#0072ff', '#10b981', '#ffffff']
-    });
   };
 
   const triageBadges = [
